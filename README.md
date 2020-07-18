@@ -1,2 +1,2 @@
 # redis-impl
-redis-1.0.2 implement and source code annotation
+redis-1.02 implement and source code annotation
