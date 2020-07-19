@@ -19,5 +19,5 @@ Source code comes from version 1.02
 * [GCC Option Summary](https://gcc.gnu.org/onlinedocs/gcc/Option-Summary.html)
 * [C Lang Standards Supported by GCC](https://gcc.gnu.org/onlinedocs/gcc/Standards.html#Standards)
 * [C语言的几套标准](http://c.biancheng.net/view/143.html)
-* [c语言简明教程](http://www.quanxue.cn/QT_XiaoYa/CLangIndex.html)
+* [C语言简明教程](http://www.quanxue.cn/QT_XiaoYa/CLangIndex.html)
 
