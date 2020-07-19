@@ -40,6 +40,8 @@
 #define __USE_POSIX199309
 #include <stdarg.h>
 
+#include <errno.h>
+
 #include "ae.h"     /* Event driven programming library */
 #include "sds.h"    /* Dynamic safe strings */
 #include "anet.h"   /* Networking the easy way */
@@ -55,6 +57,8 @@
 
 /* Slave replication state - slave side */
 #define REDIS_REPL_NONE 0   /* No active replication */
+#define REDIS_REPL_CONNECT 1    /* Must connect to master */
+#define REDIS_REPL_CONNECTED 2  /* Connected to master */
 
 /* Log levels */
 #define REDIS_DEBUG 0
@@ -245,6 +249,12 @@ static void initServerConfig() {
     server.replstate = REDIS_REPL_NONE;
 }
 
+static int yesnotoi(char *s) {
+    if (!strcasecmp(s,"yes")) return 1;
+    else if (!strcasecmp(s,"no")) return 0;
+    else return -1;
+}
+
 /* I agree, this is a very rudimental way to load a configuration...
    will improve later if the config gets more complex */
 static void loadServerConfig(char *filename) {
@@ -287,10 +297,98 @@ static void loadServerConfig(char *filename) {
             if (server.maxidletime < 0) {
                 err = "Invalid timeout value"; goto loaderr;
             }
+        } else if (!strcasecmp(argv[0],"port") && argc == 2) {
+            server.port = atoi(argv[1]);
+            if (server.port < 1 || server.port > 65535) {
+                err = "Invalid port"; goto loaderr;
+            }
+        } else if (!strcasecmp(argv[0],"bind") && argc == 2) {
+            // zstrdup 复制字符串
+            server.bindaddr = zstrdup(argv[1]);
+        } else if (!strcasecmp(argv[0],"save") && argc == 3) {
+            int seconds = atoi(argv[1]);
+            int changes = atoi(argv[2]);
+            if (seconds < 1 || changes < 0) {
+                err = "Invalid save parameters"; goto loaderr;
+            }
+            appendServerSaveParams(seconds,changes);
+        } else if (!strcasecmp(argv[0],"dir") && argc == 2) {
+            if (chdir(argv[1]) == -1) {
+                redisLog(REDIS_WARNING,"Can't chdir to '%s': %s",
+                    argv[1], strerror(errno));
+                exit(1);
+            }
+        } else if (!strcasecmp(argv[0],"loglevel") && argc == 2) {
+            if (!strcasecmp(argv[1],"debug")) server.verbosity = REDIS_DEBUG;
+            else if (!strcasecmp(argv[1],"notice")) server.verbosity = REDIS_NOTICE;
+            else if (!strcasecmp(argv[1],"warning")) server.verbosity = REDIS_WARNING;
+            else {
+                err = "Invalid log level. Must be one of debug, notice, warning";
+                goto loaderr;
+            }
+        } else if (!strcasecmp(argv[0],"logfile") && argc == 2) {
+            FILE *logfp;
+
+            server.logfile = zstrdup(argv[1]);
+            if (!strcasecmp(server.logfile,"stdout")) {
+                zfree(server.logfile);
+                server.logfile = NULL;
+            }
+            if (server.logfile) {
+                /* Test if we are able to open the file. The server will not
+                 * be able to abort just for this problem later... */
+                logfp = fopen(server.logfile,"a");
+                if (logfp == NULL) {
+                    err = sdscatprintf(sdsempty(),
+                        "Can't open the log file: %s", strerror(errno));
+                    goto loaderr;
+                }
+                fclose(logfp);
+            }
+        } else if (!strcasecmp(argv[0],"databases") && argc == 2) {
+            server.dbnum = atoi(argv[1]);
+            if (server.dbnum < 1) {
+                err = "Invalid number of databases"; goto loaderr;
+            }
+        } else if (!strcasecmp(argv[0],"maxclients") && argc == 2) {
+            server.maxclients = atoi(argv[1]);
+        } else if (!strcasecmp(argv[0],"maxmemory") && argc == 2) {
+            server.maxmemory = strtoll(argv[1], NULL, 10);
+        } else if (!strcasecmp(argv[0],"slaveof") && argc == 3) {
+            server.masterhost = sdsnew(argv[1]);
+            server.masterport = atoi(argv[2]);
+            server.replstate = REDIS_REPL_CONNECT;
+        } else if (!strcasecmp(argv[0],"glueoutputbuf") && argc == 2) {
+            if ((server.glueoutputbuf = yesnotoi(argv[1])) == -1) {
+                err = "argument must be 'yes' or 'no'"; goto loaderr;
+            }
+        } else if (!strcasecmp(argv[0],"shareobjects") && argc == 2) {
+            if ((server.shareobjects = yesnotoi(argv[1])) == -1) {
+                err = "argument must be 'yes' or 'no'"; goto loaderr;
+            }
+        } else if (!strcasecmp(argv[0],"shareobjectspoolsize") && argc == 2) {
+            server.sharingpoolsize = atoi(argv[1]);
+            if (server.sharingpoolsize < 1) {
+                err = "invalid object sharing pool size"; goto loaderr;
+            }
+        } else if (!strcasecmp(argv[0],"daemonize") && argc == 2) {
+            if ((server.daemonize = yesnotoi(argv[1])) == -1) {
+                err = "argument must be 'yes' or 'no'"; goto loaderr;
+            }
+        } else if (!strcasecmp(argv[0],"requirepass") && argc == 2) {
+          server.requirepass = zstrdup(argv[1]);
+        } else if (!strcasecmp(argv[0],"pidfile") && argc == 2) {
+          server.pidfile = zstrdup(argv[1]);
+        } else if (!strcasecmp(argv[0],"dbfilename") && argc == 2) {
+          server.dbfilename = zstrdup(argv[1]);
+        } else {
+            err = "Bad directive or wrong number of arguments"; goto loaderr;
         }
+        for (j = 0; j < argc; j++)
+            sdsfree(argv[j]);
+        zfree(argv);
+        sdsfree(line);
     }
-
-
     if (fp != stdin) fclose(fp);
     return;
 

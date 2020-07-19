@@ -37,15 +37,15 @@ static size_t used_memory = 0;
 
 void *zmalloc(size_t size) {
     // 这里多给了8的长度分配
-    printf("zmalloc: size: %zu\n", size+sizeof(size_t));
+    //printf("zmalloc: size: %zu\n", size+sizeof(size_t));
     // 最少会分配16byte，并以16递增。
     void *ptr = malloc(size+sizeof(size_t));
 
     if (!ptr) return NULL;
 #ifdef HAVE_MALLOC_SIZE
     used_memory += redis_malloc_size(ptr);
-    printf("zmalloc: new alloc: %lu\n", redis_malloc_size(ptr));
-    printf("zmalloc: used_memory: %zu\n", used_memory);
+    //printf("zmalloc: new alloc: %lu\n", redis_malloc_size(ptr));
+    //printf("zmalloc: used_memory: %zu\n", used_memory);
     return ptr;
 #else
     *((size_t*)ptr) = size;
@@ -65,12 +65,12 @@ void *zrealloc(void *ptr, size_t size) {
 #ifdef HAVE_MALLOC_SIZE
     oldsize = redis_malloc_size(ptr);
     newptr = realloc(ptr,size);
-    printf("zrealloc: size: %zu\n", size);
+    //printf("zrealloc: size: %zu\n", size);
     if (!newptr) return NULL;
 
     used_memory -= oldsize;
     used_memory += redis_malloc_size(newptr);
-    printf("zrealloc: used_memory: %zu\n", used_memory);
+    //printf("zrealloc: used_memory: %zu\n", used_memory);
     return newptr;
 #else
     realptr = (char*)ptr-sizeof(size_t);
@@ -93,8 +93,8 @@ void zfree(void *ptr) {
 
     if (ptr == NULL) return;
 #ifdef HAVE_MALLOC_SIZE
-    printf("zfree: used_memory: %zu\n", used_memory);
-    printf("zfree: redis_malloc_size ptr length: %zu\n", redis_malloc_size(ptr));
+    //printf("zfree: used_memory: %zu\n", used_memory);
+    //printf("zfree: redis_malloc_size ptr length: %zu\n", redis_malloc_size(ptr));
     used_memory -= redis_malloc_size(ptr);
     free(ptr);
 #else
