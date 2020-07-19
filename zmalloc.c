@@ -38,6 +38,7 @@ static size_t used_memory = 0;
 void *zmalloc(size_t size) {
     // 这里多给了8的长度分配
     printf("zmalloc: size: %zu\n", size+sizeof(size_t));
+    // 最少会分配16byte，并以16递增。
     void *ptr = malloc(size+sizeof(size_t));
 
     if (!ptr) return NULL;

@@ -194,6 +194,7 @@ sds sdstrim(sds s, const char *cset) {
 
     sp = start = s;         // 字符串开始处
     ep = end = s+sdslen(s)-1;   // 字符串结尾处
+    // strchr() 将会找出 str 字符串中字符 c 第一次出现的地址，然后将该地址返回。
     while(sp <= end && strchr(cset, *sp)) sp++;
     while(ep > start && strchr(cset, *ep)) ep--;
     len = (sp > ep) ? 0 : ((ep-sp)+1);

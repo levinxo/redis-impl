@@ -203,6 +203,7 @@ static void oom(const char *msg) {
 static void appendServerSaveParams(time_t seconds, int changes) {
     server.saveparams = zrealloc(server.saveparams,sizeof(struct saveparam)*(server.saveparamslen+1));  // sizeof: 16
     if (server.saveparams == NULL) oom("appendServerSaveParams");
+    // 数组的index递增时，递增的空间大小由基础元素类型/struct 占用的大小来决定。
     server.saveparams[server.saveparamslen].seconds = seconds;
     server.saveparams[server.saveparamslen].changes = changes;
     server.saveparamslen++;
