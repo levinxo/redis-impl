@@ -273,7 +273,7 @@ static void initServer() {
 
     signal(SIGHUP, SIG_IGN);        // 忽略terminal被关闭的信号
     signal(SIGPIPE, SIG_IGN);       // 忽略broken pipe信号
-    setupSigSegvAction();
+    setupSigSegvAction();           // 注册信号处理函数
 }
 
 static int yesnotoi(char *s) {
@@ -563,6 +563,8 @@ static void *getMcontextEip(ucontext_t *uc) {
 #endif
 }
 
+// 接收到信号后的清场工作
+// siginfo_t 结构体可查看：/usr/include/sys/signal.h
 static void segvHandler(int sig, siginfo_t *info, void *secret) {
     void *trace[100];
     char **messages = NULL;
@@ -623,15 +625,30 @@ static void segvHandler(int sig, siginfo_t *info, void *secret) {
 static void setupSigSegvAction(void) {
     struct sigaction act;
 
+    // 清空sa_mask集合（存在于sa_mask集合中的信号在handler函数运行时会被屏蔽）
     sigemptyset (&act.sa_mask);
+
     /* When the SA_SIGINFO flag is set in sa_flags then sa_sigaction
-     * is used. Otherwise, sa_handler is used */
+     * is used. Otherwise, sa_handler is used
+     * 当标记了SA_SIGINFO时，sigaction将使用sa_sigaction，否则使用sa_handler
+     *
+     * sigaction结构体，mac os中前两者可能为union：
+     * struct sigaction {
+     *     void     (*sa_handler)(int);
+     *     void     (*sa_sigaction)(int, siginfo_t *, void *);
+     *     sigset_t   sa_mask;
+     *     int        sa_flags;
+     *     void     (*sa_restorer)(void);
+     * };
+     *
+     * 各类flag含义可查看：/usr/include/sys/signal.h
+     */
     act.sa_flags = SA_NODEFER | SA_ONSTACK | SA_RESETHAND | SA_SIGINFO;
     act.sa_sigaction = segvHandler;
-    sigaction (SIGSEGV, &act, NULL);
-    sigaction (SIGBUS, &act, NULL);
-    sigaction (SIGFPE, &act, NULL);
-    sigaction (SIGILL, &act, NULL);
+    sigaction (SIGSEGV, &act, NULL);    /* segmentation violation */
+    sigaction (SIGBUS, &act, NULL);     /* bus error */
+    sigaction (SIGFPE, &act, NULL);     /* floating point exception */
+    sigaction (SIGILL, &act, NULL);     /* illegal instruction (not reset when caught) */
     sigaction (SIGBUS, &act, NULL);
     return;
 }
